@@ -130,8 +130,6 @@ def sort_by_duration(candidates, target_duration):
             return float('inf')
     return sorted(candidates, key=duration_diff)
 
-
-# ----------------- Step 2: LLM-powered Autonomous Ranking -----------------
 def llm_tool_autonomous_recommendation(user_query, intent, initial_candidates, max_iterations=3):
     candidate_products = initial_candidates
     target_duration = None
@@ -141,7 +139,6 @@ def llm_tool_autonomous_recommendation(user_query, intent, initial_candidates, m
         except:
             pass
 
-    # Sort initially by duration
     candidate_products = sort_by_duration(candidate_products, target_duration)
 
     tools = {
@@ -175,12 +172,12 @@ Instructions:
 - Discard irrelevant products.
 - Rank remaining products by relevance.
 - You may loop internally and call tools multiple times.
-- Return strictly valid JSON list of 5 to 10 products:
+- Return strictly valid JSON list of products (max 10):
 [ 
   {{"url": "...", "name": "...", "adaptive_support": "...", "description": "...", "duration": "...", "remote_support": "...", "test_type": "..."}}
 ]
 - Do NOT include text outside JSON.
-- You may choose not to use all tools if unnecessary.
+- Deduplicate by URL automatically.
 """
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -197,23 +194,34 @@ Instructions:
             elif not isinstance(refined, list):
                 refined = list(refined)
 
-        # Sort by duration again
         refined = sort_by_duration(refined, target_duration)
 
-        # Ensure at least 5
-        if refined and len(refined) >= 5:
-            return refined[:10]  # max 10
+        # Deduplicate by URL
+        seen_urls = set()
+        unique_recs = []
+        for r in refined:
+            url = r.get("url", "").strip().lower()
+            if url and url not in seen_urls:
+                unique_recs.append(r)
+                seen_urls.add(url)
+            if len(unique_recs) == 10:
+                break
 
-        candidate_products = refined if refined else candidate_products
+        if unique_recs:
+            return unique_recs
 
-    # If after all iterations we still have <5, duplicate existing to reach min 5
-    if not isinstance(candidate_products, list):
-        candidate_products = list(candidate_products)
-    while len(candidate_products) < 5 and candidate_products:
-        candidate_products.append(candidate_products[len(candidate_products) % len(candidate_products)])
+    # Fallback: deduplicate and cap 10
+    seen_urls = set()
+    final_unique = []
+    for r in candidate_products:
+        url = r.get("url", "").strip().lower()
+        if url and url not in seen_urls:
+            final_unique.append(r)
+            seen_urls.add(url)
+        if len(final_unique) == 10:
+            break
 
-    return candidate_products[:10]  # max 10
-
+    return final_unique
 
 
 # ----------------- Step 3: Main Workflow -----------------
