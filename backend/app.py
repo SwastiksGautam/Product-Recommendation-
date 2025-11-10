@@ -89,17 +89,18 @@ class Product(BaseModel):
     Test_Type: str
     Remote_Testing: str
 
-class RecommendedAssessment(BaseModel):
-    url: str
-    name: str
-    adaptive_support: Optional[str] = ""
-    description: Optional[str] = ""
-    duration: Optional[str] = ""
-    remote_support: Optional[str] = ""
-    test_type: Optional[str] = ""
+class AssessmentResource(BaseModel):
+    url: str                       # Valid URL to the assessment resource
+    name: str                      # Name of the assessment
+    adaptive_support: str           # "Yes" or "No"
+    description: str                # Detailed description of the assessment
+    duration: Optional[int]         # Duration of the assessment in minutes
+    remote_support: str             # "Yes" or "No"
+    test_type: List[str]            # Categories or types of the assessment
 
 class RecommendationResponse(BaseModel):
-    recommended_assessments: List[RecommendedAssessment]
+    recommended_assessments: List[AssessmentResource]
+
 
 # -------------------- Endpoints --------------------
 @app.get("/products", response_model=List[Product])
@@ -258,8 +259,10 @@ def recommend_assessments(body: dict):
             "description": r.get("description", ""),
             "remote_support": "Yes" if str(r.get("remote_support","")).lower() == "yes" else "No",
             "duration": dur,
-            "test_type": tt_str
+            "test_type": tt  # This is now a list of strings
         }
+
+
 
     final_recs = [transform_rec(r) for r in unique_recs[:10]]
 
