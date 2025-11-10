@@ -248,6 +248,8 @@ def recommend_assessments(body: dict):
             tt = [test_type_map.get(t, t) if isinstance(t, str) else t for t in tt]
         else:
             tt = []
+        
+        tt_str = ", ".join(tt)
 
         return {
             "url": r.get("url", ""),
