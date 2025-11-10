@@ -224,7 +224,12 @@ Instructions:
     return final_unique
 
 
+# ----------------- Step 3: Main Workflow -----------------
 def get_recommendations(user_input: str, input_type: str = "text"):
+    """
+    input_type: "text" (natural language), "url" (webpage URL)
+    """
+    # If URL, extract text first
     if input_type == "url":
         user_query = extract_text_from_url(user_input)
         if not user_query:
@@ -243,40 +248,21 @@ def get_recommendations(user_input: str, input_type: str = "text"):
 
     keywords = [s.strip() for s in re.split(r',|\band\b', intent.get("skill",""), flags=re.IGNORECASE) if s.strip()]
 
-    # Step 1: Strict semantic search
     candidate_products = semantic_search(keywords)
     if not candidate_products:
         candidate_products = []
         for kw in keywords:
             candidate_products.extend(exact_search(kw))
-        candidate_products = list({p['url']:p for p in candidate_products}.values())  # unique by URL
+        candidate_products = list({p['name']:p for p in candidate_products}.values())
 
     if not candidate_products:
         return []
 
-    # Sort by duration
+    # Sort initially by duration
     candidate_products = sort_by_duration(candidate_products, target_duration)
 
-    # Step 2: LLM ranking
     recommended_products = llm_tool_autonomous_recommendation(user_query, intent, candidate_products)
-
-    # Ensure uniqueness by URL
-    unique_recs = list({r['url']: r for r in recommended_products}.values())
-
-    # Step 3: Relax criteria if < 5
-    if len(unique_recs) < 5:
-        # Fetch broader matches: e.g., any assessment with same test_type
-        relaxed_candidates = []
-        for kw in keywords:
-            relaxed_candidates.extend(semantic_search([kw], top_n=20))
-        # Deduplicate URLs
-        relaxed_candidates = [r for r in relaxed_candidates if r['url'] not in {u['url'] for u in unique_recs}]
-        unique_recs.extend(relaxed_candidates[:5 - len(unique_recs)])  # add enough to reach 5
-
-    # Cap at max 10
-    return unique_recs[:10]
-
-
+    return recommended_products
 # ----------------- Step 2a: Clean Recommendation -----------------
 def clean_recommendation(rec):
     """Ensure output matches the SHL Assessment Resource Schema."""
