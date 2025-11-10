@@ -12,7 +12,7 @@ document.getElementById("submitBtn").addEventListener("click", async () => {
     const response = await fetch(
       `https://product-recommendation-x7fp.onrender.com/recommend`,
       {
-        method: "POST", // <-- Use POST
+        method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
@@ -40,7 +40,7 @@ document.getElementById("submitBtn").addEventListener("click", async () => {
         <p><b>Duration:</b> ${rec.duration || "N/A"}</p>
         <p><b>Remote Support:</b> ${rec.remote_support}</p>
         <p><b>Adaptive Support:</b> ${rec.adaptive_support}</p>
-        <p><b>Test Type:</b> ${rec.test_type.join(", ")}</p>
+        <p><b>Test Type:</b> ${rec.test_type}</p>
       </div>
     `).join("");
 
