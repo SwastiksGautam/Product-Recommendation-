@@ -12,7 +12,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 from openai import OpenAI
 client = OpenAI(api_key=OPENAI_API_KEY)
-MCP_SERVER_URL = "http://127.0.0.1:8000"
+MCP_SERVER_URL = "http://127.0.0.1:10000"
+
 
 # ----------------- Utility -----------------
 def robust_json_parse(llm_output: str) -> dict:
