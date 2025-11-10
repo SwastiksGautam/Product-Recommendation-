@@ -40,9 +40,10 @@ document.getElementById("submitBtn").addEventListener("click", async () => {
         <p><b>Duration:</b> ${rec.duration || "N/A"}</p>
         <p><b>Remote Support:</b> ${rec.remote_support}</p>
         <p><b>Adaptive Support:</b> ${rec.adaptive_support}</p>
-        <p><b>Test Type:</b> ${rec.test_type}</p>
+        <p><b>Test Type:</b> ${Array.isArray(rec.test_type) ? rec.test_type.join(", ") : rec.test_type}</p>
       </div>
     `).join("");
+
 
   } catch (error) {
     console.error(error);

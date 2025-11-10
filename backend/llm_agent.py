@@ -253,7 +253,7 @@ def get_recommendations(user_input: str, input_type: str = "text"):
     return recommended_products
 # ----------------- Step 2a: Clean Recommendation -----------------
 def clean_recommendation(rec):
-    """Ensure output matches the SHL schema with descriptive test_type."""
+    """Ensure output matches the SHL schema with descriptive test_type as list."""
     
     # duration
     dur = rec.get("duration")
@@ -273,29 +273,25 @@ def clean_recommendation(rec):
         "D": "Development & 360",
         "E": "Assessment Exercises",
         "K": "Knowledge & Skills",
-        "P": "Personality & Behavior",
+        "P": "Personality & Behaviour",
         "S": "Simulations"
     }
 
     # test_type mapping
     tt = rec.get("test_type","")
+    tt_list = []
+
     if isinstance(tt, str):
-        tt_list = []
         for t in tt.split(","):
             t = t.strip().upper()
             if t in assessment_map:
                 tt_list.append(assessment_map[t])
-            elif t:  # fallback: keep string as-is
+            elif t:
                 tt_list.append(t)
-        tt = tt_list
     elif isinstance(tt, list):
-        tt_list = []
         for t in tt:
             t = str(t).strip().upper()
             tt_list.append(assessment_map.get(t, t))
-        tt = tt_list
-    else:
-        tt = []
 
     return {
         "url": rec.get("url",""),
@@ -304,32 +300,5 @@ def clean_recommendation(rec):
         "description": rec.get("description",""),
         "duration": dur,
         "remote_support": "Yes" if str(rec.get("remote_support","")).lower() == "yes" else "No",
-        "test_type": tt
+        "test_type": tt_list
     }
-
-# ----------------- Run CLI -----------------
-if __name__ == "__main__":
-    user_input = input("Enter job requirements or URL: ").strip()
-
-    # Auto-detect URL vs text
-    if user_input.startswith("http://") or user_input.startswith("https://"):
-        input_type = "url"
-    else:
-        input_type = "text"
-
-    recs = get_recommendations(user_input, input_type=input_type)
-
-
-    if not recs:
-        print("No recommendations found.")
-    else:
-        print("\nRecommended Products:\n")
-        for p in recs:
-            print(f"URL: {p.get('url','')}")
-            print(f"name: {p.get('name','')}")
-            print(f"Adaptive Support: {'Yes' if 'yes' in p.get('adaptive_support','').lower() else 'No'}")
-            print(f"Description: {p.get('description','')}")
-            print(f"Duration: {p.get('duration','')} minutes")
-            print(f"Remote Support: {'Yes' if 'yes' in p.get('remote_support','').lower() else 'No'}")
-            print(f"Test Type: {p.get('test_type','')}")
-            print("\n")
