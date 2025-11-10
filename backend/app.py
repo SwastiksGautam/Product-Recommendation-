@@ -225,10 +225,15 @@ def recommend_assessments(body: dict):
         # Duration as integer (optional)
         dur = r.get("duration")
         if dur is not None:
-            try:
-                dur = int(dur)
-            except:
-                dur = None
+            if isinstance(dur, str):
+                match = re.search(r"\d+", dur)
+                dur = int(match.group()) if match else None
+            else:
+                try:
+                    dur = int(dur)
+                except:
+                    dur = None
+
 
         # Map test_type codes to descriptive list
         test_type_map = {
