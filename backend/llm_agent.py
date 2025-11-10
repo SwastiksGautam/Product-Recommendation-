@@ -253,9 +253,9 @@ def get_recommendations(user_input: str, input_type: str = "text"):
     return recommended_products
 # ----------------- Step 2a: Clean Recommendation -----------------
 def clean_recommendation(rec):
-    """Ensure output matches the SHL schema with descriptive test_type as list."""
-    
-    # duration
+    """Ensure output matches the SHL Assessment Resource Schema."""
+
+    # duration as integer
     dur = rec.get("duration")
     if isinstance(dur, str):
         match = re.search(r"\d+", dur)
@@ -278,27 +278,27 @@ def clean_recommendation(rec):
     }
 
     # test_type mapping
-    tt = rec.get("test_type","")
+    tt = rec.get("test_type", "")
     tt_list = []
 
     if isinstance(tt, str):
         for t in tt.split(","):
             t = t.strip().upper()
-            if t in assessment_map:
-                tt_list.append(assessment_map[t])
-            elif t:
-                tt_list.append(t)
+            tt_list.append(assessment_map.get(t, t) if t else "")
     elif isinstance(tt, list):
         for t in tt:
             t = str(t).strip().upper()
             tt_list.append(assessment_map.get(t, t))
+    
+    # remove empty strings
+    tt_list = [x for x in tt_list if x]
 
     return {
-        "url": rec.get("url",""),
-        "name": rec.get("name",""),
-        "adaptive_support": "Yes" if str(rec.get("adaptive_support","")).lower() == "yes" else "No",
-        "description": rec.get("description",""),
-        "duration": dur,
-        "remote_support": "Yes" if str(rec.get("remote_support","")).lower() == "yes" else "No",
-        "test_type": tt_list
+        "url": rec.get("url", ""),
+        "name": rec.get("name", ""),
+        "adaptive_support": "Yes" if str(rec.get("adaptive_support", "")).lower() == "yes" else "No",
+        "description": rec.get("description", ""),
+        "duration": dur,  # always integer
+        "remote_support": "Yes" if str(rec.get("remote_support", "")).lower() == "yes" else "No",
+        "test_type": tt_list  # always list of strings
     }

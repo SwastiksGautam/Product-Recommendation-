@@ -33,17 +33,24 @@ document.getElementById("submitBtn").addEventListener("click", async () => {
       return;
     }
 
-    resultsDiv.innerHTML = recs.map(rec => `
-      <div class="card">
-        <h3><a href="${rec.url}" target="_blank">${rec.name}</a></h3>
-        <p><b>Description:</b> ${rec.description}</p>
-        <p><b>Duration:</b> ${rec.duration || "N/A"}</p>
-        <p><b>Remote Support:</b> ${rec.remote_support}</p>
-        <p><b>Adaptive Support:</b> ${rec.adaptive_support}</p>
-        <p><b>Test Type:</b> ${Array.isArray(rec.test_type) ? rec.test_type.join(", ") : rec.test_type}</p>
-      </div>
-    `).join("");
+    resultsDiv.innerHTML = recs.map(rec => {
+      // Ensure duration is always a number or "N/A"
+      const duration = rec.duration != null ? rec.duration : "N/A";
 
+      // Ensure test_type is always an array
+      const testType = Array.isArray(rec.test_type) ? rec.test_type.join(", ") : rec.test_type;
+
+      return `
+        <div class="card">
+          <h3><a href="${rec.url}" target="_blank">${rec.name}</a></h3>
+          <p><b>Description:</b> ${rec.description}</p>
+          <p><b>Duration:</b> ${duration}</p>
+          <p><b>Remote Support:</b> ${rec.remote_support}</p>
+          <p><b>Adaptive Support:</b> ${rec.adaptive_support}</p>
+          <p><b>Test Type:</b> ${testType}</p>
+        </div>
+      `;
+    }).join("");
 
   } catch (error) {
     console.error(error);
