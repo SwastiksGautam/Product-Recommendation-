@@ -10,8 +10,19 @@ document.getElementById("submitBtn").addEventListener("click", async () => {
 
   try {
     const response = await fetch(
-      `https://product-recommendation-x7fp.onrender.com/recommend?query=${encodeURIComponent(query)}`
+      `https://product-recommendation-x7fp.onrender.com/recommend`,
+      {
+        method: "POST", // <-- Use POST
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          query: query,
+          input_type: "text"
+        })
+      }
     );
+
     if (!response.ok) throw new Error("API request failed");
 
     const data = await response.json();
@@ -26,12 +37,13 @@ document.getElementById("submitBtn").addEventListener("click", async () => {
       <div class="card">
         <h3><a href="${rec.url}" target="_blank">${rec.name}</a></h3>
         <p><b>Description:</b> ${rec.description}</p>
-        <p><b>Duration:</b> ${rec.duration}</p>
+        <p><b>Duration:</b> ${rec.duration || "N/A"}</p>
         <p><b>Remote Support:</b> ${rec.remote_support}</p>
         <p><b>Adaptive Support:</b> ${rec.adaptive_support}</p>
-        <p><b>Test Type:</b> ${rec.test_type}</p>
+        <p><b>Test Type:</b> ${rec.test_type.join(", ")}</p>
       </div>
     `).join("");
+
   } catch (error) {
     console.error(error);
     resultsDiv.innerHTML = "<p style='color:red;'>Error fetching recommendations. Please try again.</p>";
