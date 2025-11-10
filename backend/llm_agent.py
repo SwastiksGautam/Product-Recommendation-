@@ -202,14 +202,18 @@ Instructions:
 
         # Ensure at least 5
         if refined and len(refined) >= 5:
-            return refined
+            return refined[:10]  # max 10
+
         candidate_products = refined if refined else candidate_products
 
+    # If after all iterations we still have <5, duplicate existing to reach min 5
     if not isinstance(candidate_products, list):
         candidate_products = list(candidate_products)
-    if len(candidate_products) < 5:
-        candidate_products *= 2  # duplicate if fewer than 5
-    return candidate_products[:10]
+    while len(candidate_products) < 5 and candidate_products:
+        candidate_products.append(candidate_products[len(candidate_products) % len(candidate_products)])
+
+    return candidate_products[:10]  # max 10
+
 
 
 # ----------------- Step 3: Main Workflow -----------------
