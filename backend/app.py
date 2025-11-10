@@ -9,7 +9,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os, ast, json, re, uvicorn
 
-# Import recommendation logic
+# Import recommendation logic from llm_agent
 from llm_agent import get_recommendations
 
 # -------------------- Setup --------------------
@@ -180,10 +180,12 @@ class RecommendationResponse(BaseModel):
     recommended_assessments: List[RecommendedAssessment]
 
 
-
-def get_recommendations(query: str):
-    # --- your existing logic for generating recommendations ---
-    recommendations = [...]  # whatever your LLM returns
+@app.get("/recommend", response_model=RecommendationResponse)
+def recommend_assessments(query: str):
+    """Main recommendation endpoint that calls LLM + MCP logic."""
+    recommendations = get_recommendations(query)
+    if not recommendations:
+        raise HTTPException(status_code=404, detail="No recommendations found")
 
     # --- Deduplicate results by normalized (name + url) ---
     seen = set()
@@ -208,7 +210,7 @@ def get_recommendations(query: str):
             if len(unique_recs) >= 5:
                 break
 
-    return unique_recs[:10]
+    return {"recommended_assessments": unique_recs[:10]}
 
 
 # -------------------- Run Server --------------------
