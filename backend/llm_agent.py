@@ -251,7 +251,61 @@ def get_recommendations(user_input: str, input_type: str = "text"):
 
     recommended_products = llm_tool_autonomous_recommendation(user_query, intent, candidate_products)
     return recommended_products
+# ----------------- Step 2a: Clean Recommendation -----------------
+def clean_recommendation(rec):
+    """Ensure output matches the SHL schema with descriptive test_type."""
+    
+    # duration
+    dur = rec.get("duration")
+    if isinstance(dur, str):
+        match = re.search(r"\d+", dur)
+        dur = int(match.group()) if match else None
+    elif isinstance(dur, (int, float)):
+        dur = int(dur)
+    else:
+        dur = None
 
+    # Full assessment category mapping
+    assessment_map = {
+        "A": "Ability & Aptitude",
+        "B": "Biodata & Situational Judgement",
+        "C": "Competencies",
+        "D": "Development & 360",
+        "E": "Assessment Exercises",
+        "K": "Knowledge & Skills",
+        "P": "Personality & Behavior",
+        "S": "Simulations"
+    }
+
+    # test_type mapping
+    tt = rec.get("test_type","")
+    if isinstance(tt, str):
+        tt_list = []
+        for t in tt.split(","):
+            t = t.strip().upper()
+            if t in assessment_map:
+                tt_list.append(assessment_map[t])
+            elif t:  # fallback: keep string as-is
+                tt_list.append(t)
+        tt = tt_list
+    elif isinstance(tt, list):
+        tt_list = []
+        for t in tt:
+            t = str(t).strip().upper()
+            tt_list.append(assessment_map.get(t, t))
+        tt = tt_list
+    else:
+        tt = []
+
+    return {
+        "url": rec.get("url",""),
+        "name": rec.get("name",""),
+        "adaptive_support": "Yes" if str(rec.get("adaptive_support","")).lower() == "yes" else "No",
+        "description": rec.get("description",""),
+        "duration": dur,
+        "remote_support": "Yes" if str(rec.get("remote_support","")).lower() == "yes" else "No",
+        "test_type": tt
+    }
 
 # ----------------- Run CLI -----------------
 if __name__ == "__main__":

@@ -32,7 +32,7 @@ app.add_middleware(
 # -------------------- Health Check --------------------
 @app.get("/health")
 def health_check():
-    return {"status": "ok"}
+    return {"status": "healthy"}
 
 @app.get("/")
 def root():
@@ -175,6 +175,7 @@ def semantic_search(query: str, top_n: int = 5):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+
 # -------------------- Recommendation Endpoint (POST) --------------------
 @app.post("/recommend", response_model=RecommendationResponse)
 def recommend_assessments(body: dict):
@@ -193,14 +194,14 @@ def recommend_assessments(body: dict):
     if input_type not in ["text", "url"]:
         raise HTTPException(status_code=400, detail="input_type must be 'text' or 'url'")
 
-    recommendations = get_recommendations(query, input_type=input_type)
-    if not recommendations:
+    raw_recs = get_recommendations(query, input_type=input_type)
+    if not raw_recs:
         raise HTTPException(status_code=404, detail="No recommendations found")
 
-    # --- Deduplicate results ---
+    # --- Deduplicate ---
     seen = set()
     unique_recs = []
-    for rec in recommendations:
+    for rec in raw_recs:
         name = re.sub(r'\s+', ' ', rec.get("name", "").strip().lower())
         url = rec.get("url", "").strip().lower()
         key = f"{name}|{url}"
@@ -208,9 +209,9 @@ def recommend_assessments(body: dict):
             unique_recs.append(rec)
             seen.add(key)
 
-    # Ensure min 5 and max 10
+    # Ensure minimum 5 and maximum 10
     if len(unique_recs) < 5:
-        for rec in recommendations:
+        for rec in raw_recs:
             name = re.sub(r'\s+', ' ', rec.get("name", "").strip().lower())
             url = rec.get("url", "").strip().lower()
             key = f"{name}|{url}"
@@ -220,7 +221,52 @@ def recommend_assessments(body: dict):
             if len(unique_recs) >= 5:
                 break
 
-    return {"recommended_assessments": unique_recs[:10]}
+    # --- Transform fields to match schema ---
+    def transform_rec(r):
+        # Convert duration to int if possible
+        dur = r.get("duration")
+        if isinstance(dur, str):
+            match = re.search(r"\d+", dur)
+            dur = int(match.group()) if match else None
+        elif isinstance(dur, (int, float)):
+            dur = int(dur)
+        else:
+            dur = None
+
+        # Map test_type code to descriptive list
+        test_type_map = {
+            "A": ["Ability & Aptitude"],
+            "B": ["Biodata & Situational Judgement"],
+            "C": ["Competencies"],
+            "D": ["Development & 360"],
+            "E": ["Assessment Exercises"],
+            "K": ["Knowledge & Skills"],
+            "P": ["Personality & Behaviour"],
+            "S": ["Simulations"]
+        }
+        tt = r.get("test_type", "")
+        if isinstance(tt, str):
+            tt = [test_type_map.get(t.strip(), t.strip()) for t in tt.split(",") if t.strip()]
+            tt = [item for sublist in tt for item in (sublist if isinstance(sublist, list) else [sublist])]
+        elif isinstance(tt, list):
+            tt = tt
+        else:
+            tt = []
+
+        return {
+            "url": r.get("url", ""),
+            "name": r.get("name", ""),
+            "adaptive_support": "Yes" if str(r.get("adaptive_support","")).strip().lower() == "yes" else "No",
+            "description": r.get("description", ""),
+            "duration": dur,
+            "remote_support": "Yes" if str(r.get("remote_support","")).strip().lower() == "yes" else "No",
+            "test_type": tt
+        }
+
+    final_recs = [transform_rec(r) for r in unique_recs[:10]]
+
+    return {"recommended_assessments": final_recs}
+
 
 # -------------------- Run Server --------------------
 if __name__ == "__main__":
