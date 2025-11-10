@@ -258,7 +258,7 @@ def recommend_assessments(body: dict):
             "description": r.get("description", ""),
             "remote_support": "Yes" if str(r.get("remote_support","")).lower() == "yes" else "No",
             "duration": dur,
-            "test_type": tt
+            "test_type": tt_str
         }
 
     final_recs = [transform_rec(r) for r in unique_recs[:10]]
