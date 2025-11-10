@@ -4,15 +4,35 @@ import json
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
+from bs4 import BeautifulSoup
+from trafilatura import extract as trafilatura_extract
 
 load_dotenv()
 
 # Access your key
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-from openai import OpenAI
 client = OpenAI(api_key=OPENAI_API_KEY)
 MCP_SERVER_URL = "http://127.0.0.1:10000"
+
+
+# ----------------- Step 0: Extract text from URL -----------------
+def extract_text_from_url(url):
+    headers = {"User-Agent": "Mozilla/5.0"}
+    try:
+        resp = requests.get(url, headers=headers, timeout=10)
+        if resp.status_code != 200:
+            return ""
+        html = resp.text
+        text = trafilatura_extract(html)
+        if text:
+            return text
+        soup = BeautifulSoup(html, "html.parser")
+        candidates = soup.find_all(["p","div","span"])
+        text_content = " ".join([c.get_text(separator=" ").strip() for c in candidates])
+        return re.sub(r"\s+", " ", text_content)
+    except Exception as e:
+        print("Error fetching URL:", e)
+        return ""
 
 
 # ----------------- Utility -----------------
@@ -98,6 +118,7 @@ Return only valid JSON.
     )
     return robust_json_parse(resp.choices[0].message.content)
 
+
 # ----------------- Step 2: Sort by duration helper -----------------
 def sort_by_duration(candidates, target_duration):
     if not target_duration:
@@ -108,6 +129,7 @@ def sort_by_duration(candidates, target_duration):
         except:
             return float('inf')
     return sorted(candidates, key=duration_diff)
+
 
 # ----------------- Step 2: LLM-powered Autonomous Ranking -----------------
 def llm_tool_autonomous_recommendation(user_query, intent, initial_candidates, max_iterations=3):
@@ -154,7 +176,7 @@ Instructions:
 - Rank remaining products by relevance.
 - You may loop internally and call tools multiple times.
 - Return strictly valid JSON list of 5 to 10 products:
-[
+[ 
   {{"url": "...", "name": "...", "adaptive_support": "...", "description": "...", "duration": "...", "remote_support": "...", "test_type": "..."}}
 ]
 - Do NOT include text outside JSON.
@@ -189,8 +211,20 @@ Instructions:
         candidate_products *= 2  # duplicate if fewer than 5
     return candidate_products[:10]
 
+
 # ----------------- Step 3: Main Workflow -----------------
-def get_recommendations(user_query: str):
+def get_recommendations(user_input: str, input_type: str = "text"):
+    """
+    input_type: "text" (natural language), "url" (webpage URL)
+    """
+    # If URL, extract text first
+    if input_type == "url":
+        user_query = extract_text_from_url(user_input)
+        if not user_query:
+            return []
+    else:
+        user_query = user_input
+
     intent = extract_intent(user_query)
 
     target_duration = None
@@ -218,18 +252,24 @@ def get_recommendations(user_query: str):
     recommended_products = llm_tool_autonomous_recommendation(user_query, intent, candidate_products)
     return recommended_products
 
-# ----------------- Run -----------------
+
+# ----------------- Run CLI -----------------
 if __name__ == "__main__":
-    user_input = input("Enter job requirements: ")
-    recs = get_recommendations(user_input)
+    user_input = input("Enter job requirements or URL: ").strip()
+
+    # Auto-detect URL vs text
+    if user_input.startswith("http://") or user_input.startswith("https://"):
+        input_type = "url"
+    else:
+        input_type = "text"
+
+    recs = get_recommendations(user_input, input_type=input_type)
+
 
     if not recs:
         print("No recommendations found.")
     else:
         print("\nRecommended Products:\n")
-        if not isinstance(recs, list):
-            recs = list(recs)
-
         for p in recs:
             print(f"URL: {p.get('url','')}")
             print(f"name: {p.get('name','')}")

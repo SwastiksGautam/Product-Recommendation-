@@ -179,11 +179,17 @@ class RecommendedAssessment(BaseModel):
 class RecommendationResponse(BaseModel):
     recommended_assessments: List[RecommendedAssessment]
 
-
 @app.get("/recommend", response_model=RecommendationResponse)
-def recommend_assessments(query: str):
-    """Main recommendation endpoint that calls LLM + MCP logic."""
-    recommendations = get_recommendations(query)
+def recommend_assessments(query: str, input_type: Optional[str] = "text"):
+    """
+    Main recommendation endpoint that accepts:
+    - query: natural language or job description
+    - input_type: "text" or "url"
+    """
+    if input_type not in ["text", "url"]:
+        raise HTTPException(status_code=400, detail="input_type must be 'text' or 'url'")
+
+    recommendations = get_recommendations(query, input_type=input_type)
     if not recommendations:
         raise HTTPException(status_code=404, detail="No recommendations found")
 
@@ -211,7 +217,6 @@ def recommend_assessments(query: str):
                 break
 
     return {"recommended_assessments": unique_recs[:10]}
-
 
 # -------------------- Run Server --------------------
 if __name__ == "__main__":

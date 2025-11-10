@@ -8,3 +8,5 @@ scikit-learn
 pydantic
 typing_extensions
 python-dotenv
+beautifulsoup4==4.12.2
+trafilatura==1.7.3
