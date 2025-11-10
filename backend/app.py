@@ -175,8 +175,6 @@ def semantic_search(query: str, top_n: int = 5):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# -------------------- Recommendation Endpoint (POST) --------------------
 @app.post("/recommend", response_model=RecommendationResponse)
 def recommend_assessments(body: dict):
     """
@@ -198,21 +196,21 @@ def recommend_assessments(body: dict):
     if not raw_recs:
         raise HTTPException(status_code=404, detail="No recommendations found")
 
-    # --- Deduplicate ---
+    # Deduplicate
     seen = set()
     unique_recs = []
     for rec in raw_recs:
-        name = re.sub(r'\s+', ' ', rec.get("name", "").strip().lower())
+        name = rec.get("name", "").strip().lower()
         url = rec.get("url", "").strip().lower()
         key = f"{name}|{url}"
         if key not in seen and name and url:
             unique_recs.append(rec)
             seen.add(key)
 
-    # Ensure minimum 5 and maximum 10
+    # Ensure at least 5 and max 10
     if len(unique_recs) < 5:
         for rec in raw_recs:
-            name = re.sub(r'\s+', ' ', rec.get("name", "").strip().lower())
+            name = rec.get("name", "").strip().lower()
             url = rec.get("url", "").strip().lower()
             key = f"{name}|{url}"
             if key not in seen and name and url:
@@ -221,45 +219,43 @@ def recommend_assessments(body: dict):
             if len(unique_recs) >= 5:
                 break
 
-    # --- Transform fields to match schema ---
+    # Transform each recommendation to strict schema
     def transform_rec(r):
-        # Convert duration to int if possible
+        # Duration as integer (optional)
         dur = r.get("duration")
-        if isinstance(dur, str):
-            match = re.search(r"\d+", dur)
-            dur = int(match.group()) if match else None
-        elif isinstance(dur, (int, float)):
-            dur = int(dur)
-        else:
-            dur = None
+        if dur is not None:
+            try:
+                dur = int(dur)
+            except:
+                dur = None
 
-        # Map test_type code to descriptive list
+        # Map test_type codes to descriptive list
         test_type_map = {
-            "A": ["Ability & Aptitude"],
-            "B": ["Biodata & Situational Judgement"],
-            "C": ["Competencies"],
-            "D": ["Development & 360"],
-            "E": ["Assessment Exercises"],
-            "K": ["Knowledge & Skills"],
-            "P": ["Personality & Behaviour"],
-            "S": ["Simulations"]
+            "A": "Ability & Aptitude",
+            "B": "Biodata & Situational Judgement",
+            "C": "Competencies",
+            "D": "Development & 360",
+            "E": "Assessment Exercises",
+            "K": "Knowledge & Skills",
+            "P": "Personality & Behaviour",
+            "S": "Simulations"
         }
-        tt = r.get("test_type", "")
+
+        tt = r.get("test_type", [])
         if isinstance(tt, str):
-            tt = [test_type_map.get(t.strip(), t.strip()) for t in tt.split(",") if t.strip()]
-            tt = [item for sublist in tt for item in (sublist if isinstance(sublist, list) else [sublist])]
-        elif isinstance(tt, list):
-            tt = tt
+            tt = [t.strip().upper() for t in tt.split(",") if t.strip()]
+        if isinstance(tt, list):
+            tt = [test_type_map.get(t, t) if isinstance(t, str) else t for t in tt]
         else:
             tt = []
 
         return {
             "url": r.get("url", ""),
             "name": r.get("name", ""),
-            "adaptive_support": "Yes" if str(r.get("adaptive_support","")).strip().lower() == "yes" else "No",
+            "adaptive_support": "Yes" if str(r.get("adaptive_support","")).lower() == "yes" else "No",
             "description": r.get("description", ""),
+            "remote_support": "Yes" if str(r.get("remote_support","")).lower() == "yes" else "No",
             "duration": dur,
-            "remote_support": "Yes" if str(r.get("remote_support","")).strip().lower() == "yes" else "No",
             "test_type": tt
         }
 
