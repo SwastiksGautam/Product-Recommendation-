@@ -1,0 +1,11 @@
+openai
+requests
+pandas
+fastapi
+uvicorn
+numpy
+scikit-learn
+pydantic
+typing_extensions
+python-dotenv
+git push origin maingit branch -M main
