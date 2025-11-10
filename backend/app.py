@@ -29,10 +29,14 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+# -------------------- Health Check --------------------
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
 @app.get("/")
 def root():
     return {"message": "🚀 Product Recommendation API is live!"}
-
 
 # -------------------- Load Product Data --------------------
 BASE_DIR = os.path.dirname(__file__)
@@ -74,8 +78,7 @@ else:
         lambda x: ast.literal_eval(x) if isinstance(x, str) else x
     )
 
-
-# -------------------- Pydantic Model --------------------
+# -------------------- Pydantic Models --------------------
 class Product(BaseModel):
     name: str
     link: str
@@ -86,13 +89,23 @@ class Product(BaseModel):
     Test_Type: str
     Remote_Testing: str
 
+class RecommendedAssessment(BaseModel):
+    url: str
+    name: str
+    adaptive_support: Optional[str] = ""
+    description: Optional[str] = ""
+    duration: Optional[str] = ""
+    remote_support: Optional[str] = ""
+    test_type: Optional[str] = ""
+
+class RecommendationResponse(BaseModel):
+    recommended_assessments: List[RecommendedAssessment]
 
 # -------------------- Endpoints --------------------
 @app.get("/products", response_model=List[Product])
 def get_all_products():
     """Return all SHL products."""
     return df.to_dict(orient="records")
-
 
 @app.get("/filter", response_model=List[Product])
 def filter_products(
@@ -116,7 +129,6 @@ def filter_products(
         filtered = filtered[filtered["Description"].str.contains(keyword, case=False, na=False)]
     return filtered.to_dict(orient="records")
 
-
 @app.get("/sort", response_model=List[Product])
 def sort_products(by: str = Query("name"), ascending: bool = True):
     """Sort products by a specific field."""
@@ -129,7 +141,6 @@ def sort_products(by: str = Query("name"), ascending: bool = True):
     if not field:
         raise HTTPException(status_code=400, detail="Invalid sort field")
     return df.sort_values(by=field, ascending=ascending).to_dict(orient="records")
-
 
 @app.get("/semantic_search", response_model=List[Product])
 def semantic_search(query: str, top_n: int = 5):
@@ -164,28 +175,21 @@ def semantic_search(query: str, top_n: int = 5):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# -------------------- Recommendation Endpoint --------------------
-class RecommendedAssessment(BaseModel):
-    url: str
-    name: str
-    adaptive_support: Optional[str] = ""
-    description: Optional[str] = ""
-    duration: Optional[str] = ""
-    remote_support: Optional[str] = ""
-    test_type: Optional[str] = ""
-
-
-class RecommendationResponse(BaseModel):
-    recommended_assessments: List[RecommendedAssessment]
-
-@app.get("/recommend", response_model=RecommendationResponse)
-def recommend_assessments(query: str, input_type: Optional[str] = "text"):
+# -------------------- Recommendation Endpoint (POST) --------------------
+@app.post("/recommend", response_model=RecommendationResponse)
+def recommend_assessments(body: dict):
     """
-    Main recommendation endpoint that accepts:
-    - query: natural language or job description
-    - input_type: "text" or "url"
+    Main recommendation endpoint (POST) that accepts JSON body:
+    {
+        "query": "job description text",
+        "input_type": "text"  # or "url"
+    }
     """
+    query = body.get("query")
+    input_type = body.get("input_type", "text")
+
+    if not query:
+        raise HTTPException(status_code=400, detail="Missing 'query' in request body")
     if input_type not in ["text", "url"]:
         raise HTTPException(status_code=400, detail="input_type must be 'text' or 'url'")
 
@@ -193,7 +197,7 @@ def recommend_assessments(query: str, input_type: Optional[str] = "text"):
     if not recommendations:
         raise HTTPException(status_code=404, detail="No recommendations found")
 
-    # --- Deduplicate results by normalized (name + url) ---
+    # --- Deduplicate results ---
     seen = set()
     unique_recs = []
     for rec in recommendations:
@@ -204,7 +208,7 @@ def recommend_assessments(query: str, input_type: Optional[str] = "text"):
             unique_recs.append(rec)
             seen.add(key)
 
-    # --- Ensure minimum 5 and maximum 10 recommendations ---
+    # Ensure min 5 and max 10
     if len(unique_recs) < 5:
         for rec in recommendations:
             name = re.sub(r'\s+', ' ', rec.get("name", "").strip().lower())
