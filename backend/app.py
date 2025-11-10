@@ -197,30 +197,35 @@ def recommend_assessments(body: dict):
     if not raw_recs:
         raise HTTPException(status_code=404, detail="No recommendations found")
 
-    # Deduplicate
+    # -------------------- Deduplicate and ensure 5–10 --------------------
     seen = set()
     unique_recs = []
+
+    # First, add all valid items from LLM output
     for rec in raw_recs:
-        name = rec.get("name", "").strip().lower()
-        url = rec.get("url", "").strip().lower()
+        name = rec.get("name", "").strip()
+        url = rec.get("url", "").strip()
         key = f"{name}|{url}"
         if key not in seen and name and url:
             unique_recs.append(rec)
             seen.add(key)
 
-    # Ensure at least 5 and max 10
+    # If less than 5, fill from raw candidates (allow missing URLs but require name)
     if len(unique_recs) < 5:
         for rec in raw_recs:
-            name = rec.get("name", "").strip().lower()
-            url = rec.get("url", "").strip().lower()
+            name = rec.get("name", "").strip()
+            url = rec.get("url", "").strip()
             key = f"{name}|{url}"
-            if key not in seen and name and url:
+            if key not in seen and name:
                 unique_recs.append(rec)
                 seen.add(key)
             if len(unique_recs) >= 5:
                 break
 
-    # Transform each recommendation to strict schema
+    # Cap at 10
+    unique_recs = unique_recs[:10]
+
+    # -------------------- Transform to strict schema --------------------
     def transform_rec(r):
         # Duration as integer (optional)
         dur = r.get("duration")
@@ -233,7 +238,6 @@ def recommend_assessments(body: dict):
                     dur = int(dur)
                 except:
                     dur = None
-
 
         # Map test_type codes to descriptive list
         test_type_map = {
@@ -254,8 +258,6 @@ def recommend_assessments(body: dict):
             tt = [test_type_map.get(t, t) if isinstance(t, str) else t for t in tt]
         else:
             tt = []
-        
-        tt_str = ", ".join(tt)
 
         return {
             "url": r.get("url", ""),
@@ -264,12 +266,10 @@ def recommend_assessments(body: dict):
             "description": r.get("description", ""),
             "remote_support": "Yes" if str(r.get("remote_support","")).lower() == "yes" else "No",
             "duration": dur,
-            "test_type": tt  # This is now a list of strings
+            "test_type": tt  # always list of strings
         }
 
-
-
-    final_recs = [transform_rec(r) for r in unique_recs[:10]]
+    final_recs = [transform_rec(r) for r in unique_recs]
 
     return {"recommended_assessments": final_recs}
 
