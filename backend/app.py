@@ -27,6 +27,10 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+@app.get("/")
+def root():
+    return {"message": "🚀 Product Recommendation API is live!"}
+
 # -------------------- Load Product Data --------------------
 BASE_DIR = os.path.dirname(__file__)
 csv_path = os.path.join(BASE_DIR, "shl_all_products_details.csv")
