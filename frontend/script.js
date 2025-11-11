@@ -34,10 +34,7 @@ document.getElementById("submitBtn").addEventListener("click", async () => {
     }
 
     resultsDiv.innerHTML = recs.map(rec => {
-      // Ensure duration is always a number or "N/A"
       const duration = rec.duration != null ? rec.duration : "N/A";
-
-      // Ensure test_type is always an array
       const testType = Array.isArray(rec.test_type) ? rec.test_type.join(", ") : rec.test_type;
 
       return `

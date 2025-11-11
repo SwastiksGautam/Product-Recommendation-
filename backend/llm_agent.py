@@ -9,13 +9,10 @@ from trafilatura import extract as trafilatura_extract
 
 load_dotenv()
 
-# Access your key
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=OPENAI_API_KEY)
 MCP_SERVER_URL = "http://127.0.0.1:10000"
 
-
-# ----------------- Step 0: Extract text from URL -----------------
 def extract_text_from_url(url):
     headers = {"User-Agent": "Mozilla/5.0"}
     try:
@@ -34,8 +31,6 @@ def extract_text_from_url(url):
         print("Error fetching URL:", e)
         return ""
 
-
-# ----------------- Utility -----------------
 def robust_json_parse(llm_output: str) -> dict:
     try:
         return json.loads(llm_output)
@@ -48,7 +43,6 @@ def robust_json_parse(llm_output: str) -> dict:
                 pass
     return {}
 
-# ----------------- MCP Server Tool Wrappers -----------------
 def semantic_search(keywords, top_n=10):
     try:
         resp = requests.get(f"{MCP_SERVER_URL}/semantic_search", params={"query": ",".join(keywords), "top_n": top_n})
@@ -84,7 +78,6 @@ def sort_products(by="name", ascending=True):
     except:
         return []
 
-# ----------------- Step 1: Extract Intent -----------------
 def extract_intent(user_query: str) -> dict:
     prompt = f"""
 You are an expert job-product recommender. 
@@ -118,8 +111,6 @@ Return only valid JSON.
     )
     return robust_json_parse(resp.choices[0].message.content)
 
-
-# ----------------- Step 2: Sort by duration helper -----------------
 def sort_by_duration(candidates, target_duration):
     if not target_duration:
         return candidates
@@ -196,7 +187,6 @@ Instructions:
 
         refined = sort_by_duration(refined, target_duration)
 
-        # Deduplicate by URL
         seen_urls = set()
         unique_recs = []
         for r in refined:
@@ -210,7 +200,6 @@ Instructions:
         if unique_recs:
             return unique_recs
 
-    # Fallback: deduplicate and cap 10
     seen_urls = set()
     final_unique = []
     for r in candidate_products:
@@ -223,13 +212,7 @@ Instructions:
 
     return final_unique
 
-
-# ----------------- Step 3: Main Workflow -----------------
 def get_recommendations(user_input: str, input_type: str = "text"):
-    """
-    input_type: "text" (natural language), "url" (webpage URL)
-    """
-    # If URL, extract text first
     if input_type == "url":
         user_query = extract_text_from_url(user_input)
         if not user_query:
@@ -258,16 +241,12 @@ def get_recommendations(user_input: str, input_type: str = "text"):
     if not candidate_products:
         return []
 
-    # Sort initially by duration
     candidate_products = sort_by_duration(candidate_products, target_duration)
 
     recommended_products = llm_tool_autonomous_recommendation(user_query, intent, candidate_products)
     return recommended_products
-# ----------------- Step 2a: Clean Recommendation -----------------
-def clean_recommendation(rec):
-    """Ensure output matches the SHL Assessment Resource Schema."""
 
-    # duration as integer
+def clean_recommendation(rec):
     dur = rec.get("duration")
     if isinstance(dur, str):
         match = re.search(r"\d+", dur)
@@ -277,7 +256,6 @@ def clean_recommendation(rec):
     else:
         dur = None
 
-    # Full assessment category mapping
     assessment_map = {
         "A": "Ability & Aptitude",
         "B": "Biodata & Situational Judgement",
@@ -289,7 +267,6 @@ def clean_recommendation(rec):
         "S": "Simulations"
     }
 
-    # test_type mapping
     tt = rec.get("test_type", "")
     tt_list = []
 
@@ -302,7 +279,6 @@ def clean_recommendation(rec):
             t = str(t).strip().upper()
             tt_list.append(assessment_map.get(t, t))
     
-    # remove empty strings
     tt_list = [x for x in tt_list if x]
 
     return {
@@ -310,7 +286,7 @@ def clean_recommendation(rec):
         "name": rec.get("name", ""),
         "adaptive_support": "Yes" if str(rec.get("adaptive_support", "")).lower() == "yes" else "No",
         "description": rec.get("description", ""),
-        "duration": dur,  # always integer
+        "duration": dur,
         "remote_support": "Yes" if str(rec.get("remote_support", "")).lower() == "yes" else "No",
-        "test_type": tt_list  # always list of strings
+        "test_type": tt_list
     }
