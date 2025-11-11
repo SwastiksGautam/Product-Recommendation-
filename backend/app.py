@@ -19,9 +19,10 @@ app = FastAPI(title="Unified SHL MCP + Recommendation Backend")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  
+    allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
 @app.get("/health")
